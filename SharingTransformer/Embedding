@@ -1,0 +1,20 @@
+#因数分解を用いたembeddingレイヤー
+
+from keras import backend as K
+class MyEmbedding(Layer):
+    def __init__(self, depth, e_model,d_model, **kwargs):
+        self.depth = depth
+        self.e_model = e_model
+        self.d_model = d_model
+        super(MyEmbedding, self).__init__(**kwargs)
+    
+    def build(self, input_shape):
+        self.eW = self.add_weight(name='eW',shape=(self.depth,self.e_model),
+                                  initializer='glorot_normal',trainable=True)
+        self.dW = self.add_weight(name='dW', shape=(self.e_model,self.d_model),
+                                  initializer='glorot_normal',trainable=True)
+        super(MyEmbedding, self).build(input_shape)
+        
+    def call(self, x):
+        h = K.dot(K.gather(self.eW, tf.cast(x,tf.int32)), self.dW)
+        return h
