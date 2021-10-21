@@ -1,0 +1,145 @@
+import os, sys
+import MeCab
+import numpy as np
+
+
+char_to_id1 = {}
+id_to_char1 = {}
+char_to_id2 = {}
+id_to_char2 = {}
+
+
+def _update_vocab1(txt):  #データのid変換
+    chars1 = list(txt)
+    
+    for i, char1 in enumerate(chars1):
+        if char1 not in char_to_id1:
+            tmp_id = len(char_to_id1)
+            char_to_id1[char1] = tmp_id
+            id_to_char1[tmp_id] = char1
+            
+    return [char_to_id1[c] for c in list(txt)]
+            
+def get_vocab1():
+    return char_to_id1, id_to_char1
+
+def _update_vocab2(txt):  #データのid変換
+    chars2 = list(txt)
+    
+    for i, char2 in enumerate(chars2):
+        if char2 not in char_to_id2:
+            tmp_id = len(char_to_id2)
+            char_to_id2[char2] = tmp_id
+            id_to_char2[tmp_id] = char2
+            
+    return [char_to_id2[c] for c in list(txt)]
+            
+def get_vocab2():
+    return char_to_id2, id_to_char2
+    
+    
+try:
+    unicode
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout)
+    def copen(fname, mode):
+        return codecs.open(fname, mode, "utf-8")
+except:
+    def copen(fname, mode):
+        return open(fname, mode, encoding='utf-8')
+
+nuc_dir = "collectdata" #データファイル
+
+def make_sequence_from_file(fname):
+    fname = os.path.join(nuc_dir, fname)
+    if not os.path.exists(fname):
+        raise Exception("no %s file." % fname)
+    last_line = None
+    sequence = []
+    with copen(fname, "r") as f:
+        try:
+            for line in f:
+                uline = line
+                if uline[0] == u'R':
+                    if last_line is None:
+                        last_line = uline
+                        continue
+                    else:
+                        seq_input = last_line[4:]
+                        seq_output = uline[4:]
+                        last_line = None
+                        sequence.append((seq_input, seq_output))
+                else:
+                    last_line = None
+        except:
+            sys.stderr.write("skip %s (not euc-jp)\n" % fname)
+            sys.stderr.flush()
+            return []
+    return sequence
+
+def load_data(seed = 1984):
+    
+    questions = []
+    answers = []
+    qid = []
+    aid = []
+    count=0
+    max_length = 30 #データ配列の最大列数、勝手に求められるようにしたい
+    
+    if not os.path.exists(nuc_dir):
+        raise Exception("no extracted files.")
+    
+        
+    files = os.listdir(nuc_dir)
+    uniq_seq = {}
+    
+    _update_vocab1(' ')
+    _update_vocab2(' ')
+    _update_vocab2('_')
+    _update_vocab2('/')
+    
+    for f in files:
+        if not ".txt" in f:
+            continue
+        seq = make_sequence_from_file(f)
+        for inp, out in seq:
+            uniq_seq[inp] = out
+    for k, v in uniq_seq.items(): #形態素解析とid変換
+        mt = MeCab.Tagger("-Owakati home/usr/mecab-ipadic-NEologd")
+        #question = ['<s>']
+        question = mt.parse(k).split()
+        #question += ['</s>']
+        if len(question) >= max_length or len(question) == 0:
+            continue
+        question += [' '] *(max_length - len(question))
+        answer = ['_'] 
+        answer += mt.parse(v).split()
+        answer += ['/']
+        if len(answer) >= max_length or len(answer) == 0:
+            continue
+        answer += [' '] * (max_length - len(answer)) 
+        questions.append(question)   
+        answers.append(answer)
+        qid.append(_update_vocab1(question))
+        aid.append(_update_vocab2(answer))
+        count += 1
+        if count == 30:
+            break
+        
+    
+    x = np.zeros((len(questions), len(questions[0])), dtype=np.int)
+    t = np.zeros((len(answers), len(answers[0])), dtype=np.int)
+    
+    for i, sentence in enumerate(questions):
+        x[i] = [char_to_id1[c] for c in list(sentence)]
+    for i, sentence in enumerate(answers):
+        t[i] = [char_to_id2[c] for c in list(sentence)]
+    
+    indices = np.arange(len(x))
+    if seed is not None: #シャッフル
+        np.random.seed(seed)
+    np.random.shuffle(indices)
+    x = x[indices]
+    t = t[indices]
+   
+    return (x , t)
