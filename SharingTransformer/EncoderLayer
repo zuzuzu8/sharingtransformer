@@ -1,0 +1,83 @@
+class EncoderLayer(Model):
+    def __init__(self,
+                 h = 8,
+                 d_model = 512,
+                 d_ff = 2048,
+                 p_dropout = 0.1,
+                 maxlen = 128):
+        super().__init__()
+        self.attn = MultiHeadAttention(h, d_model)
+        self.dropout1 = Dropout(p_dropout)
+        self.norm1 = LayerNormalization()
+        self.ff = FFN(d_model, d_ff)
+        self.dropout2 = Dropout(p_dropout)
+        self.norm2 = LayerNormalization()
+        
+    def call(self, x, mask=None):
+        h = self.attn(x, x, x, mask=mask)
+        h = self.dropout1(h)
+        h = self.norm1(x + h)
+        
+        y = self.ff(h)
+        y = self.dropout2(y)
+        y = self.norm2(h + y)
+        
+        return y
+        
+        #2層目のEncoderLayer
+
+class EncoderLayerStart(Model):
+    def __init__(self,
+                 h = 8,
+                 d_model = 512,
+                 d_ff = 2048,
+                 p_dropout = 0.1,
+                 maxlen = 128):
+        super().__init__()
+        self.attn = MultiHeadAttentionStart(h, d_model)
+        self.dropout1 = Dropout(p_dropout)
+        self.norm1 = LayerNormalization()
+        self.ff = FFNStart(d_model, d_ff)
+        self.dropout2 = Dropout(p_dropout)
+        self.norm2 = LayerNormalization()
+        
+    def call(self, x, mask=None):
+        h, Wq, Wk, Wv, Wo, bo = self.attn(x, x, x, mask=mask)
+        h = self.dropout1(h)
+        h = self.norm1(x + h)
+        
+        y, kernel1, bias1, kernel2, bias2 = self.ff(h)
+        y = self.dropout2(y)
+        y = self.norm2(h + y)
+        
+        return y, Wq, Wk, Wv, Wo, bo, kernel1, bias1, kernel2, bias2
+        
+        #3層目から最後の層の一つ前までのEncoderLayer
+
+class EncoderLayerSharing(Model):
+    def __init__(self,
+                 h = 8,
+                 d_model = 512,
+                 d_ff = 2048,
+                 p_dropout = 0.1,
+                 maxlen = 128):
+        super().__init__()
+        self.attn = MultiHeadAttentionSharing(h, d_model)
+        self.dropout1 = Dropout(p_dropout)
+        self.norm1 = LayerNormalization()
+        self.ff = FFNSharing(d_model, d_ff)
+        self.dropout2 = Dropout(p_dropout)
+        self.norm2 = LayerNormalization()
+        
+    def call(self, x, Wq, Wk, Wv, Wo, bo, kernel1, bias1, kernel2, bias2, mask=None):
+        h, Wq, Wk, Wv, Wo, bo = self.attn(x, x, x, Wq, Wk, Wv, Wo, bo, mask=mask)
+        h = self.dropout1(h)
+        h = self.norm1(x + h)
+        
+        y, kernel1, bias1, kernel2, bias2 = self.ff(h, kernel1, bias1, kernel2, bias2)
+        y = self.dropout2(y)
+        y = self.norm2(h + y)
+        
+        return y, Wq, Wk, Wv, Wo, bo, kernel1, bias1, kernel2, bias2
+        
+        
