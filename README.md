@@ -1,0 +1,9 @@
+# sharingtransformer
+
+__プログラムの説明一覧__
+
+datacollect: データを収集するプログラム
+
+NormalTransformer:通常のTransformer、改良版のTransformerとの比較のために作成
+
+SharingTransformer:改良し、訓練時間を短縮したTransformer
