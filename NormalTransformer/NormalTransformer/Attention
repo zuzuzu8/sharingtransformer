@@ -1,0 +1,26 @@
+#Attentionの値を計算する
+
+class ScaleDotProductAttention(Layer):
+    def __init__(self, d_k):
+        super().__init__()
+        self.d_k = d_k
+        self.scaler = np.sqrt(d_k)
+        
+    def build(self, input_shape):
+        super().build(input_shape)
+        
+    def call(self, q, k, v, mask=None):  #クエリ、キー、値を引数にとる
+        score = tf.einsum('ijk, ilk ->ijl', q, k) / self.scaler
+        score = score - tf.reduce_max(score, axis=-1, keepdims=True)
+        score = tf.exp(score)
+        
+        if mask is not None:
+            if len(mask.shape) == 2:
+                mask = mask[:, tf.newaxis, :]
+            mask = tf.cast(mask, tf.float32)
+            score = score * mask
+            
+        a = score / tf.reduce_sum(score, axis=-1, keepdims=True)
+        c = tf.einsum('ijk, ikl ->ijl', a, v)
+        
+        return c
