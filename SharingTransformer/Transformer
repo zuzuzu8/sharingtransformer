@@ -1,0 +1,64 @@
+class Transformer(Model):
+    def __init__(self,
+                 depth_source, depth_target, eN=6, dN=6, h=8,e_model=128, d_model=512,
+                 d_ff = 2048, p_dropout=0.1, maxlen=128):
+        super().__init__()
+        self.encoder = Encoder(depth_source, N=eN, h=h,e_model=e_model, d_model=d_model,
+                               d_ff=d_ff, p_dropout=p_dropout, maxlen=maxlen)
+        self.decoder = Decoder(depth_target, N=dN, h=h,e_model=e_model, d_model=d_model,
+                               d_ff=d_ff, p_dropout=p_dropout, maxlen=maxlen)
+        self.out = Dense(depth_target, activation='softmax')
+        self.maxlen = maxlen
+    
+    def call(self, source, target=None):
+        mask_source = self.sequence_mask(source)
+        
+        hs = self.encoder(source, mask=mask_source)
+        
+        if target is not None:
+            target = target[:, :-1]
+            len_target_sequences = target.shape[1]
+            mask_target = self.sequence_mask(target)[:, tf.newaxis, :]
+            subsequent_mask = self.subsequence_mask(target)
+            mask_target = tf.greater(mask_target + subsequent_mask, 1)
+            
+            y = self.decoder(target, hs,
+                             mask = mask_target,
+                             mask_source = mask_source)
+            output = self.out(y)
+        else:
+            batch_size = source.shape[0]
+            len_target_sequences = self.maxlen
+            
+            output = tf.ones((batch_size, 1), dtype=tf.int32)
+            
+            for t in range(len_target_sequences - 1):
+                mask_target = self.subsequence_mask(output)
+                out = self.decoder(output, hs,
+                                   mask = mask_target,
+                                   mask_source = mask_source)
+                out = self.out(out)[:, -1: :]
+                out = tf.argmax(out, axis=-1, output_type=tf.int32)
+                output = tf.concat([output, out], axis=-1)
+                
+        return output
+        
+    
+    def sequence_mask(self, x):
+        
+        len_sequences = \
+            tf.reduce_sum(tf.cast(tf.not_equal(x, 0),
+                                  tf.int32), axis = 1)
+        mask = \
+            tf.cast(tf.sequence_mask(len_sequences,
+                                     tf.shape(x)[-1]), tf.float32)
+        return mask
+    
+    def subsequence_mask(self, x):
+        shape = (x.shape[1], x.shape[1])
+        mask = np.tril(np.ones(shape, dtype=np.int32), k=0)
+        mask = tf.convert_to_tensor(mask, dtype=tf.float32)
+        
+        return tf.tile(mask[tf.newaxis, :, :], [x.shape[0], 1, 1])
+    
+    
