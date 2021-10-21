@@ -1,0 +1,37 @@
+class Encoder(Model):
+    def __init__(self,
+                 depth_source,
+                 N = 6,
+                 h = 8,
+                 e_model = 128,
+                 d_model = 512,
+                 d_ff = 2048,
+                 p_dropout = 0.1,
+                 maxlen = 128):
+        super().__init__()
+        self.embedding = MyEmbedding(depth_source,
+                                   e_model, d_model)
+        self.pe = PositionalEncoding(d_model, maxlen = maxlen)
+        self.encoder_layer1 = EncoderLayer(h = h, d_model = d_model, d_ff = d_ff, p_dropout = p_dropout,
+                                                maxlen = maxlen)
+        self.encoder_layer2 = EncoderLayerStart(h = h, d_model = d_model, d_ff = d_ff, p_dropout = p_dropout,
+                                                maxlen = maxlen)
+        self.encoder_layers = [
+            EncoderLayerSharing(h = h, d_model = d_model, d_ff = d_ff, p_dropout = p_dropout,
+                         maxlen = maxlen) for _ in range(N-3)
+        ]
+        self.encoder_layerlast = EncoderLayer(h = h, d_model = d_model, d_ff = d_ff, p_dropout = p_dropout,
+                                                maxlen = maxlen)
+        
+    def call(self, x, mask=None):
+        x = self.embedding(x)
+        y = self.pe(x)
+        y = self.encoder_layer1(y, mask = mask)
+        y, Wq, Wk, Wv, Wo, bo, kernel1, bias1, kernel2, bias2 = self.encoder_layer2(y,mask=mask)
+        for encoder_layer in self.encoder_layers:
+            y, Wq, Wk, Wv, Wo, bo, kernel1, bias1, kernel2, bias2 = encoder_layer(y, Wq, Wk, Wv, Wo, bo, kernel1, bias1, kernel2, bias2, mask=mask)
+        
+        y = self.encoder_layerlast(y, mask = mask)
+        return y
+        
+        
