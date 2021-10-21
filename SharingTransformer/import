@@ -1,0 +1,11 @@
+#import一覧,主にtensorflowとkerasを用いる
+
+import numpy as np
+import tensorflow as tf
+import os
+import random
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, LSTM, Embedding, Dropout,Layer
+from tensorflow.keras import optimizers
+from tensorflow.keras import losses
+from tensorflow.keras import metrics
