@@ -1,0 +1,105 @@
+class Vocab(object):
+    def __init__(self):
+        self.w2i = {}
+        self.i2w = {}
+        self.special_chars = ['<pad>','<s>','</s>','<unk>']
+        self.bos_char = self.special_chars[1]
+        self.eos_char = self.special_chars[2]
+        self.oov_char = self.special_chars[3]
+        
+    def fit(self, path):
+        self._words = set()
+        
+        with open(path, 'r', encoding="utf-8") as f:
+            sentences = f.read().splitlines()
+        
+        for sentence in sentences:
+            self._words.update(sentence.split())
+            
+        self.w2i = {w: (i + len(self.special_chars))
+                    for i, w in enumerate(self._words)}
+        
+        for i, w in enumerate(self.special_chars):
+            self.w2i[w] = i
+            
+        self.i2w = {i: w for w, i in self.w2i.items()}
+        
+    def transform(self, path, bos=False, eos=False):
+        output = []
+        
+        with open(path, 'r', encoding="utf-8") as f:
+            sentences = f.read().splitlines()
+            
+        for sentence in sentences:
+            sentence = sentence.split()
+            if bos:
+                sentence = [self.bos_char] + sentence
+            if eos:
+                sentence = sentence + [self.eos_char]
+            output.append(self.encode(sentence))
+        
+        return output
+    
+    def encode(self, sentence):
+        output = []
+        
+        for w in sentence:
+            if w not in self.w2i:
+                idx = self.w2i[self.oov_char]
+            else:
+                idx = self.w2i[w]
+            output.append(idx)
+            
+        return output
+    
+    def decode(self, sentence):
+        return [self.i2w[id] for id in sentence]
+    
+    from sklearn.utils import shuffle
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+class DataLoader(object):
+    def __init__(self, dataset,
+                 batch_size = 30,  #バッチサイズ決定
+                 shuffle = False,
+                 random_state = None):
+        self.dataset = list(zip(dataset[0], dataset[1]))
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        
+        if random_state is None:
+            random_state = np.random.RandomState(123)
+            
+        self.random_state = random_state
+        self._idx = 0
+        self._reset()
+        
+    def __len__(self):
+        N = len(self.dataset)
+        b = self.batch_size
+        return N // b + bool(N % b)
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if self._idx >= len(self.dataset):
+            self._reset()
+            raise StopIteration()
+            
+        x, t = zip(*self.dataset[self._idx:(self._idx + self.batch_size)])
+        x = pad_sequences(x, padding='post')
+        t = pad_sequences(t, padding='post')
+        
+        x = tf.convert_to_tensor(x, dtype=tf.int32)
+        t = tf.convert_to_tensor(t, dtype=tf.int32)
+        
+        self._idx += self.batch_size
+        
+        return x, t
+    
+    def _reset(self):
+        if self.shuffle:
+            self.dataset = shuffle(self.dataset,
+                                   random_state=self.random_state)
+        self._idx = 0
