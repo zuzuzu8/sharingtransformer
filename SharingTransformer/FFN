@@ -1,0 +1,77 @@
+#feedforwardnetworkの2層目で使用する
+
+class DenseStart(Layer):
+    def __init__(self, output_dim, activation, **kwargs):
+        self.output_dim = output_dim
+        self.activation = activation
+        super(DenseStart, self).__init__(**kwargs)
+        
+    def build(self, input_shape):
+        self.kernel = self.add_weight(name='kernel',shape=(input_shape[2], self.output_dim),
+                                      initializer='glorot_uniform')
+        self.bias = self.add_weight(name='bias', shape=(1,1,self.output_dim),
+                                    initializer='zeros')
+        super(DenseStart, self).build(input_shape)
+        
+    def call(self, x):
+        if self.activation == 'relu':
+            return (K.relu(K.dot(x,self.kernel)+ self.bias)), self.kernel, self.bias
+        elif self.activation == 'softmax':
+            return (K.softmax(K.dot(x, self.kernel) + self.bias)), self.kernel, self.bias
+        else:
+            return (K.dot(x, self.kernel)+ self.bias), self.kernel, self.bias
+            
+#feedforwardnetwork層の3層目から最後の1つ前の層までで使用する
+
+class DenseSharing(Layer):
+    def __init__(self, output_dim, activation, **kwargs):
+        self.output_dim = output_dim
+        self.activation = activation
+        super(DenseSharing, self).__init__(**kwargs)
+        
+    def call(self, x, kernel, bias):
+        if self.activation == 'relu':
+            return (K.relu(K.dot(x, kernel)+ bias)), kernel, bias
+        elif self.activation == 'softmax':
+            return (K.softmax(K.dot(x, kernel) + bias)), kernel, bias
+        else:
+            return (K.dot(x, kernel)+ bias), kernel, bias
+ 
+class FFN(Model):
+    def __init__(self, d_model, d_ff):
+        super().__init__()
+        self.l1 = Dense(d_ff, activation='relu')
+        self.l2 = Dense(d_model, activation='linear')
+        
+    def call(self, x):
+        h = self.l1(x)
+        y = self.l2(h)
+        return y
+  
+#layerの2層目で使用する
+
+class FFNStart(Model):
+    def __init__(self, d_model, d_ff):
+        super().__init__()
+        self.l1 = DenseStart(d_ff, activation='relu')
+        self.l2 = DenseStart(d_model, activation='linear')
+        
+    def call(self, x):
+        h, kernel1, bias1 = self.l1(x)
+        y, kernel2, bias2 = self.l2(h)
+        return y, kernel1, bias1, kernel2, bias2
+        
+        #layerの3層目から最後の層の一つ前までで使用する
+
+class FFNSharing(Model):
+    def __init__(self, d_model, d_ff):
+        super().__init__()
+        self.l1 = DenseSharing(d_ff, activation='relu')
+        self.l2 = DenseSharing(d_model, activation='linear')
+        
+    def call(self, x, kernel1, bias1, kernel2, bias2):
+        h, kernel1, bias1 = self.l1(x, kernel1, bias1)
+        y, kernel2, bias2 = self.l2(h, kernel2, bias2)
+        return y, kernel1, bias1, kernel2, bias2
+        
+        
