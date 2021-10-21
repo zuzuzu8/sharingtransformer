@@ -1,0 +1,29 @@
+class Decoder(Model):
+    def __init__(self,
+                 depth_target,
+                 N = 6,
+                 h = 8,
+                 d_model = 512,
+                 d_ff = 2048,
+                 p_dropout = 0.1,
+                 maxlen = 128):
+        super().__init__()
+        self.embedding = Embedding(depth_target, d_model, mask_zero=True)
+        self.pe = PositionalEncoding(d_model, maxlen=maxlen)
+        self.decoder_layers = [
+            DecoderLayer(h = h,
+                         d_model = d_model,
+                         d_ff = d_ff,
+                         p_dropout=p_dropout,
+                         maxlen = maxlen) for _ in range(N)
+        ]
+        
+    def call(self, x, hs, mask=None, mask_source=None):
+        x = self.embedding(x)
+        y = self.pe(x)
+        
+        for decoder_layer in self.decoder_layers:
+            y = decoder_layer(y, hs,
+                              mask=mask, mask_source=mask_source)
+            
+        return y
