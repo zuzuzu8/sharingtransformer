@@ -1,0 +1,38 @@
+#bleu_scoreを計算するプログラム
+
+import nltk
+import math
+from collections import Counter
+
+def bleu_score(reference, hypothesis, weights=[1/4]*4):
+    if len(hypothesis) == 0:
+        return 0
+    N = min(4,len(hypothesis))
+    closest = len(reference)
+    bp = min(1, math.exp(1-closest/len(hypothesis)))
+
+    sm = 0
+    for i in range(1,N+1):
+        lh = []
+        for k in range(len(hypothesis)-i+1):
+            lh.append(' '.join(hypothesis[k:k+i]))
+        ch = Counter(lh)
+        s = 0
+        for t in ch:
+            mn = 0
+            max_count = 0
+            lr = []
+            for k in range(len(reference)-i+1):
+                lr.append(' '.join(reference[k:k+i]))
+            cr = Counter(lr)
+            max_count = max(max_count, cr[t])
+            mn = min(ch[t], max_count)
+            s += mn / len(lh)
+        if s==0:
+            if i==1:
+                return 0
+            else:
+                pass
+        else:
+            sm += weights[i-1] * math.log(s)
+    return bp*math.exp(sm)
