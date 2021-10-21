@@ -1,0 +1,12 @@
+#feed forward network-2層のニューラルネットワーク
+
+class FFN(Model):
+    def __init__(self, d_model, d_ff):
+        super().__init__()
+        self.l1 = Dense(d_ff, activation='relu')
+        self.l2 = Dense(d_model, activation='linear')
+        
+    def call(self, x):
+        h = self.l1(x)
+        y = self.l2(h)
+        return y
