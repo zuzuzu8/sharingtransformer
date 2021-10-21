@@ -1,0 +1,38 @@
+class Decoder(Model):
+    def __init__(self,
+                 depth_target,
+                 N = 6,
+                 h = 8,
+                 e_model = 128,
+                 d_model = 512,
+                 d_ff = 2048,
+                 p_dropout = 0.1,
+                 maxlen = 128):
+        super().__init__()
+        self.embedding = MyEmbedding(depth_target, e_model, d_model)
+        self.pe = PositionalEncoding(d_model, maxlen=maxlen)
+        self.decoder_layer1 = DecoderLayer(h = h, d_model = d_model, d_ff = d_ff,
+                                           p_dropout=p_dropout, maxlen = maxlen)
+        self.decoder_layer2 = DecoderLayerStart(h = h, d_model = d_model, d_ff = d_ff,
+                                           p_dropout=p_dropout, maxlen = maxlen)
+        self.decoder_layers = [
+            DecoderLayerSharing(h = h,
+                                d_model = d_model,
+                                d_ff = d_ff,
+                                p_dropout=p_dropout,
+                                maxlen = maxlen) for _ in range(N-3)
+        ]
+        self.decoder_layerlast = DecoderLayer(h = h, d_model = d_model, d_ff = d_ff,
+                                              p_dropout=p_dropout, maxlen = maxlen)
+        
+    def call(self, x, hs, mask=None, mask_source=None):
+        x = self.embedding(x)
+        
+        y = self.pe(x)
+        y = self.decoder_layer1(y, hs, mask=mask, mask_source=mask_source)
+        y,Wq1, Wk1, Wv1, Wo1, bo1, Wq2, Wk2, Wv2, Wo2, bo2, kernel1, bias1, kernel2, bias2 = self.decoder_layer2(y, hs, mask=mask, mask_source=mask_source)
+        for decoder_layer in self.decoder_layers:
+            y,Wq1, Wk1, Wv1, Wo1, bo1, Wq2, Wk2, Wv2, Wo2, bo2, kernel1, bias1, kernel2, bias2= decoder_layer(y, hs,Wq1, Wk1, Wv1, Wo1, bo1, Wq2, Wk2, Wv2, Wo2, bo2, kernel1, bias1, kernel2, bias2
+                                ,mask=mask, mask_source=mask_source)
+        y = self.decoder_layerlast(y, hs, mask=mask, mask_source=mask_source)
+        return y
