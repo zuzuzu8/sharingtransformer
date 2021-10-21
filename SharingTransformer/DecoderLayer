@@ -1,0 +1,91 @@
+class DecoderLayer(Model):
+    def __init__(self, h=8, d_model=512, d_ff=2048, p_dropout=0.1, maxlen=128):
+        super().__init__()
+        self.self_attn = MultiHeadAttention(h, d_model)
+        self.dropout1 = Dropout(p_dropout)
+        self.norm1 = LayerNormalization()
+        self.src_tgt_attn = MultiHeadAttention(h, d_model)
+        self.dropout2 = Dropout(p_dropout)
+        self.norm2 = LayerNormalization()
+        self.ff = FFN(d_model, d_ff)
+        self.dropout3 = Dropout(p_dropout)
+        self.norm3 = LayerNormalization()
+        
+    def call(self, x, hs, mask =None, mask_source=None):
+        h = self.self_attn(x, x, x, mask=mask)
+        h = self.dropout1(h)
+        h = self.norm1(x + h)
+    
+        z = self.src_tgt_attn(h, hs, hs, mask=mask_source)
+        z = self.dropout2(z)
+        z = self.norm2(h + z)
+        
+        y = self.ff(z)
+        y = self.dropout3(y)
+        y = self.norm3(z + y)
+        
+        return y
+        
+        #2層目のDecoderLayer
+
+class DecoderLayerStart(Model):
+    def __init__(self, h=8, d_model=512, d_ff=2048, p_dropout=0.1, maxlen=128):
+        super().__init__()
+        self.self_attn = MultiHeadAttentionStart(h, d_model)
+        self.dropout1 = Dropout(p_dropout)
+        self.norm1 = LayerNormalization()
+        self.src_tgt_attn = MultiHeadAttentionStart(h, d_model)
+        self.dropout2 = Dropout(p_dropout)
+        self.norm2 = LayerNormalization()
+        self.ff = FFNStart(d_model, d_ff)
+        self.dropout3 = Dropout(p_dropout)
+        self.norm3 = LayerNormalization()
+        
+    def call(self, x, hs, mask =None, mask_source=None):
+        h, Wq1, Wk1, Wv1, Wo1, bo1 = self.self_attn(x, x, x, mask=mask)
+        h = self.dropout1(h)
+        h = self.norm1(x + h)
+    
+        z, Wq2, Wk2, Wv2, Wo2, bo2 = self.src_tgt_attn(h, hs, hs, mask=mask_source)
+        z = self.dropout2(z)
+        z = self.norm2(h + z)
+        
+        y, kernel1, bias1, kernel2 ,bias2 = self.ff(z)
+        y = self.dropout3(y)
+        y = self.norm3(z + y)
+        
+        return y, Wq1, Wk1, Wv1, Wo1, bo1, Wq2, Wk2, Wv2, Wo2, bo2, kernel1, bias1, kernel2, bias2
+    
+    
+    #3層目から最後の層の一つ前までのDecoderLayer
+
+class DecoderLayerSharing(Model):
+    def __init__(self, h=8, d_model=512, d_ff=2048, p_dropout=0.1, maxlen=128):
+        super().__init__()
+        self.self_attn = MultiHeadAttentionSharing(h, d_model)
+        self.dropout1 = Dropout(p_dropout)
+        self.norm1 = LayerNormalization()
+        self.src_tgt_attn = MultiHeadAttentionSharing(h, d_model)
+        self.dropout2 = Dropout(p_dropout)
+        self.norm2 = LayerNormalization()
+        self.ff = FFNSharing(d_model, d_ff)
+        self.dropout3 = Dropout(p_dropout)
+        self.norm3 = LayerNormalization()
+        
+    def call(self, x, hs, Wq1, Wk1, Wv1, Wo1, bo1, Wq2, Wk2, Wv2, Wo2, bo2,
+              kernel1, bias1, kernel2, bias2, mask =None, mask_source=None):
+        h, Wq1, Wk1, Wv1, Wo1, bo1 = self.self_attn(x, x, x, Wq1, Wk1, Wv1, Wo1, bo1, mask=mask)
+        h = self.dropout1(h)
+        h = self.norm1(x + h)
+    
+        z, Wq2, Wk2, Wv2, Wo2, bo2 = self.src_tgt_attn(h, hs, hs, Wq2, Wk2, Wv2, Wo2, bo2, mask=mask_source)
+        z = self.dropout2(z)
+        z = self.norm2(h + z)
+        
+        y, kernel1, bias1, kernel2, bias2 = self.ff(z, kernel1, bias1, kernel2, bias2)
+        y = self.dropout3(y)
+        y = self.norm3(z + y)
+        
+        return y, Wq1, Wk1, Wv1, Wo1, bo1, Wq2, Wk2, Wv2, Wo2, bo2, kernel1, bias1, kernel2, bias2
+        
+        
